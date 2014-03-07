@@ -167,20 +167,25 @@ class GitHubHook
     if ($this->ip_in_cidrs($this->_remoteIp, $this->_github_public_cidrs)) {
       foreach ($this->_branches as $branch) {
         if ($this->_payload->ref == 'refs/heads/' . $branch['name']) {
-          $this->log('Deploying to ' . $branch['title'] . ' server');
-	  $output=array(); 
-	  $exit=0;
-	  $cmd='git --git-dir='. escapeshellarg($branch['path'] . '/.git') .' --work-tree='. escapeshellarg($branch['path']) .' pull origin '. escapeshellarg($branch['name']);
-          exec($cmd,$output,$exit);
-	  $msg="\t" . join(PHP_EOL . "\t", $output);
-	  if (0!=$exit)
-	    $this->error("error($exit): " . $branch['path'] . '$ ' . $cmd . PHP_EOL . $msg);
-	  else
-	    $this->log(msg); 
+          if (count($branch['author']) == 0 || in_array($this->_payload->pusher->email, $branch['author'])) {
+            $this->log('Deploying to ' . $branch['title'] . ' server');
+            $output=array(); 
+            $exit=0;
+            $cmd='git --git-dir='. escapeshellarg($branch['path'] . '/.git') .' --work-tree='. escapeshellarg($branch['path']) .' pull origin '. escapeshellarg($branch['name']);
+            exec($cmd,$output,$exit);
+            $msg="\t" . join(PHP_EOL . "\t", $output);
+            if (0!=$exit) {
+              $this->error("error($exit): " . $branch['path'] . '$ ' . $cmd . PHP_EOL . $msg);
+            } else {
+              $this->log(msg);
+            }
+          } else {
+            $this->log("error: `" . $this->_payload->pusher->email . "` not found in list of allowed authors for branch `" . $branch['name'] . "` on `" . $branch['title'] . "`");
+          }
         }
       }
     } else {
-	  // IP of remote is invalid.
+      // IP of remote is invalid.
       $this->_notFound('IP address not recognized: ' . $this->_remoteIp);
     }
   }
